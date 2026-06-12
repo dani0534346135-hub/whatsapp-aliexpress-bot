@@ -10,20 +10,21 @@ const apiTokenInstance = process.env.API_TOKEN_INSTANCE;
 app.post('/webhook', async (req, res) => {
     const data = req.body;
     
-    // בדיקה אם זו הודעת טקסט נכנסת (מפרטי או מקבוצה)
-    if (data.typeWebhook === 'incomingMessageReceived' && data.messageData.typeMessage === 'textMessage') {
+    // לוג לראות בדיוק מה מגיע לשרת (יופיע ב-Logs של Render)
+    console.log("התקבלה הודעה מ-Green API:", JSON.stringify(data, null, 2));
+
+    // בדיקה: האם זו הודעת טקסט (נכנסת או יוצאת)
+    if (data.messageData && data.messageData.textMessageData) {
         const chatId = data.senderData.chatId;
         const message = data.messageData.textMessageData.textMessage;
-        const senderName = data.senderData.senderName;
         
-        console.log(`הודעה התקבלה מ-${senderName} ב-${chatId}: ${message}`);
+        console.log(`זיהיתי הודעה מ-${chatId}: ${message}`);
         
-        // כאן אתה מגדיר את הלוגיקה שלך
-        // למשל, תגובה לכל הודעה שמכילה מילה מסוימת
-        if (message.includes("מבצע")) {
+        // לוגיקה לתגובה אוטומטית (רק אם זו הודעה נכנסת)
+        if (data.typeWebhook === 'incomingMessageReceived' && message.includes("מבצע")) {
             await axios.post(`https://api.green-api.com/waInstance${idInstance}/sendMessage/${apiTokenInstance}`, {
                 chatId: chatId,
-                message: "שלום! מצאתי מבצע חם באליאקספרס בשבילך."
+                message: "קיבלתי! אני בודק את המבצע באליאקספרס..."
             });
         }
     }
@@ -32,4 +33,4 @@ app.post('/webhook', async (req, res) => {
 });
 
 const PORT = process.env.PORT || 10000;
-app.listen(PORT, '0.0.0.0', () => console.log(`הבוט רץ ומאזין בפורט ${PORT}`));
+app.listen(PORT, '0.0.0.0', () => console.log(`הבוט מאזין בפורט ${PORT}`));
