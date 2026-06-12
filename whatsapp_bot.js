@@ -1,38 +1,54 @@
 const { Client, LocalAuth } = require('whatsapp-web.js');
-const qrcode = require('qrcode-terminal');
+const { MongoStore } = require('wwebjs-mongo');
+const mongoose = require('mongoose');
 const express = require('express');
 const app = express();
 const PORT = process.env.PORT || 10000;
 
-// משתנה גלובלי לברקוד
+// שרת להצגת הברקוד אם צריך
 let latestQr = "";
-
 app.get('/', (req, res) => {
     if (latestQr) {
-        // מציג את הברקוד בדפדפן
         res.send(`<h1>סרוק את הבוט:</h1><img src="https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(latestQr)}" />`);
     } else {
-        res.send('<h1>הבוט מנסה להתחבר... רענן את הדף בעוד 10 שניות.</h1>');
+        res.send('<h1>הבוט מחובר ושומר Session ב-MongoDB!</h1>');
     }
 });
 app.listen(PORT);
 
-const client = new Client({
-    authStrategy: new LocalAuth({ clientId: "client-one" }),
-    puppeteer: {
-        headless: true,
-        args: ['--no-sandbox', '--disable-setuid-sandbox']
-    }
-});
+const MONGODB_URI = process.env.MONGODB_URI;
 
-client.on('qr', (qr) => {
-    latestQr = qr; // שומר את הברקוד
-    console.log('QR קיבלנו! הנה הוא באתר');
-});
+mongoose.connect(MONGODB_URI).then(() => {
+    console.log('✅ מחובר למסד נתונים');
+    const store = new MongoStore({ mongoose: mongoose });
 
-client.on('ready', () => {
-    latestQr = "";
-    console.log('✅ הבוט מחובר!');
-});
+    const client = new Client({
+        authStrategy: new LocalAuth({
+            store: store,
+            clientId: 'client-one'
+        }),
+        puppeteer: {
+            headless: true,
+            args: [
+                '--no-sandbox', 
+                '--disable-setuid-sandbox', 
+                '--disable-dev-shm-usage',
+                '--disable-gpu',
+                '--single-process',
+                '--no-zygote'
+            ]
+        }
+    });
 
-client.initialize();
+    client.on('qr', (qr) => {
+        latestQr = qr;
+        console.log('QR מוכן לסריקה באתר');
+    });
+
+    client.on('ready', () => {
+        latestQr = "";
+        console.log('✅ הבוט מחובר!');
+    });
+
+    client.initialize();
+}).catch(err => console.error('שגיאה בחיבור ל-MongoDB:', err));
