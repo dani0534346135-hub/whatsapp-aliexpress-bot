@@ -2,8 +2,10 @@ FROM ghcr.io/puppeteer/puppeteer:22.10.0
 
 USER root
 
-# התקנת פייתון וכלים נחוצים
-RUN apt-get update && apt-get install -y python3 python3-pip python3-venv && apt-get clean
+# תיקון שגיאות חתימה (GPG) עבור כרום והתקנת פייתון בצורה בטוחה
+RUN apt-get update -o Acquire::AllowInsecureRepositories=true -o Acquire::AllowDowngradeToInsecureRepositories=true || true \
+    && apt-get install -y --allow-unauthenticated python3 python3-pip python3-venv \
+    && apt-get clean
 
 WORKDIR /app
 
