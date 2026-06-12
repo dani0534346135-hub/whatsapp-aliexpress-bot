@@ -6,6 +6,9 @@ const express = require('express');
 const app = express();
 const PORT = process.env.PORT || 10000;
 
+// Endpoint שמונע מ-Render לבצע ריסטארטים (Health Check)
+app.get('/health', (req, res) => res.sendStatus(200));
+
 let latestQr = "";
 
 app.get('/', (req, res) => {
