@@ -9,23 +9,15 @@ const apiTokenInstance = process.env.API_TOKEN_INSTANCE;
 
 app.post('/webhook', async (req, res) => {
     const data = req.body;
-    
+
     if (data.typeWebhook === 'incomingMessageReceived' && data.messageData.typeMessage === 'textMessage') {
         const sender = data.senderData.sender;
-        
-        console.log("הודעה חדשה התקבלה");
-        
-        // הגדרה בטוחה של התשובה
-        const answer = "קיבלתי את ההודעה שלך, תודה.";
-        
-        try {
-            await axios.post(`https://api.green-api.com/waInstance${idInstance}/sendMessage/${apiTokenInstance}`, {
-                chatId: sender,
-                message: answer
-            });
-        } catch (error) {
-            console.error("שגיאה בשליחה");
-        }
+        const answer = "קיבלתי את ההודעה, תודה רבה!";
+
+        await axios.post(`https://api.green-api.com/waInstance${idInstance}/sendMessage/${apiTokenInstance}`, {
+            chatId: sender,
+            message: answer
+        });
     }
     res.sendStatus(200);
 });
