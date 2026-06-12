@@ -7,63 +7,37 @@ const app = express();
 const PORT = process.env.PORT || 10000;
 
 let latestQr = "";
-let isInitializing = false; 
 
 app.get('/', (req, res) => {
     if (latestQr) {
-        res.send(`<h1>סרוק את הברקוד כדי לחבר את הבוט:</h1>
-                  <img src="https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(latestQr)}" />`);
+        res.send(`<h1>סרוק את הברקוד:</h1><img src="https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(latestQr)}" />`);
     } else {
-        res.send('<h1>הבוט מחובר למסד הנתונים ומוכן לעבודה!</h1>');
+        res.send('<h1>הבוט מחובר!</h1>');
     }
 });
 
 app.listen(PORT, '0.0.0.0');
 
-// חיבור למסד הנתונים
 mongoose.connect(process.env.MONGODB_URI).then(() => {
-    console.log('✅ מחובר למסד הנתונים בהצלחה');
+    console.log('✅ מחובר למסד הנתונים');
     const store = new MongoStore({ mongoose: mongoose });
 
     const client = new Client({
-        authStrategy: new LocalAuth({
-            store: store,
-            clientId: 'dani-bot'
-        }),
+        authStrategy: new LocalAuth({ store: store, clientId: 'dani-bot' }),
         puppeteer: {
             headless: true,
             args: [
-                '--no-sandbox', 
-                '--disable-setuid-sandbox', 
-                '--disable-dev-shm-usage', 
-                '--single-process'
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+                '--disable-dev-shm-usage',
+                '--disable-gpu',
+                '--single-process',
+                '--no-zygote'
             ]
         }
     });
 
-    client.on('qr', (qr) => {
-        if (!isInitializing) {
-            latestQr = qr;
-            console.log('QR מוכן! ניתן לסרוק באתר.');
-            isInitializing = true;
-        }
-    });
-
-    client.on('authenticated', () => {
-        console.log('✅ אימות הצליח! שומר נתונים ב-MongoDB...');
-    });
-
-    client.on('ready', () => {
-        latestQr = "";
-        isInitializing = false;
-        console.log('✅ הבוט מחובר לוואטסאפ ושומר Session!');
-    });
-
-    client.on('disconnected', (reason) => {
-        console.log('הבוט התנתק, מאפס תהליך...');
-        isInitializing = false;
-        client.initialize();
-    });
-
+    client.on('qr', (qr) => { latestQr = qr; console.log('QR מוכן!'); });
+    client.on('ready', () => { latestQr = ""; console.log('✅ הבוט מחובר!'); });
     client.initialize();
-}).catch(err => console.error('שגיאה קריטית בחיבור למסד הנתונים:', err));
+});
