@@ -4,13 +4,15 @@ const express = require('express');
 const app = express();
 const PORT = process.env.PORT || 10000;
 
+// משתנה גלובלי לברקוד
 let latestQr = "";
 
 app.get('/', (req, res) => {
     if (latestQr) {
-        res.send(`<h1>סרוק את הבוט</h1><img src="https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(latestQr)}" />`);
+        // מציג את הברקוד בדפדפן
+        res.send(`<h1>סרוק את הבוט:</h1><img src="https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(latestQr)}" />`);
     } else {
-        res.send('<h1>הבוט מחובר וממתין!</h1>');
+        res.send('<h1>הבוט מנסה להתחבר... רענן את הדף בעוד 10 שניות.</h1>');
     }
 });
 app.listen(PORT);
@@ -19,30 +21,18 @@ const client = new Client({
     authStrategy: new LocalAuth({ clientId: "client-one" }),
     puppeteer: {
         headless: true,
-        args: [
-            '--no-sandbox',
-            '--disable-setuid-sandbox',
-            '--disable-dev-shm-usage',
-            '--disable-gpu',
-            '--single-process', // חוסך המון זיכרון
-            '--no-zygote'
-        ]
+        args: ['--no-sandbox', '--disable-setuid-sandbox']
     }
 });
 
 client.on('qr', (qr) => {
-    latestQr = qr;
+    latestQr = qr; // שומר את הברקוד
+    console.log('QR קיבלנו! הנה הוא באתר');
 });
 
 client.on('ready', () => {
     latestQr = "";
     console.log('✅ הבוט מחובר!');
-});
-
-// ניקוי זיכרון למקרה של תקלה
-client.on('disconnected', () => {
-    console.log('הבוט התנתק, מאתחל...');
-    process.exit(1);
 });
 
 client.initialize();
