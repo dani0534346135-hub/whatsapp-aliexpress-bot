@@ -7,20 +7,22 @@ const app = express();
 const PORT = process.env.PORT || 10000;
 
 let latestQr = "";
-let isInitializing = false; // מנגנון למניעת לופ ברקודים
+let isInitializing = false; 
 
 app.get('/', (req, res) => {
     if (latestQr) {
-        res.send(`<h1>סרוק את הברקוד:</h1><img src="https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(latestQr)}" />`);
+        res.send(`<h1>סרוק את הברקוד כדי לחבר את הבוט:</h1>
+                  <img src="https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(latestQr)}" />`);
     } else {
-        res.send('<h1>הבוט מחובר וממתין להוראות</h1>');
+        res.send('<h1>הבוט מחובר למסד הנתונים ומוכן לעבודה!</h1>');
     }
 });
 
 app.listen(PORT, '0.0.0.0');
 
+// חיבור למסד הנתונים
 mongoose.connect(process.env.MONGODB_URI).then(() => {
-    console.log('✅ מחובר למסד הנתונים');
+    console.log('✅ מחובר למסד הנתונים בהצלחה');
     const store = new MongoStore({ mongoose: mongoose });
 
     const client = new Client({
@@ -30,7 +32,12 @@ mongoose.connect(process.env.MONGODB_URI).then(() => {
         }),
         puppeteer: {
             headless: true,
-            args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--single-process']
+            args: [
+                '--no-sandbox', 
+                '--disable-setuid-sandbox', 
+                '--disable-dev-shm-usage', 
+                '--single-process'
+            ]
         }
     });
 
@@ -40,6 +47,10 @@ mongoose.connect(process.env.MONGODB_URI).then(() => {
             console.log('QR מוכן! ניתן לסרוק באתר.');
             isInitializing = true;
         }
+    });
+
+    client.on('authenticated', () => {
+        console.log('✅ אימות הצליח! שומר נתונים ב-MongoDB...');
     });
 
     client.on('ready', () => {
@@ -55,4 +66,4 @@ mongoose.connect(process.env.MONGODB_URI).then(() => {
     });
 
     client.initialize();
-}).catch(err => console.error('שגיאה בחיבור:', err));
+}).catch(err => console.error('שגיאה קריטית בחיבור למסד הנתונים:', err));
