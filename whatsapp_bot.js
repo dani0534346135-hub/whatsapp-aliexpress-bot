@@ -6,12 +6,20 @@ const express = require('express');
 const app = express();
 const PORT = process.env.PORT || 10000;
 
-app.get('/', (req, res) => res.send('הבוט רץ ומחובר למסד הנתונים!'));
+let latestQr = "";
+
+app.get('/', (req, res) => {
+    if (latestQr) {
+        res.send(`<h1>סרוק את הברקוד הבא:</h1><img src="https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(latestQr)}" />`);
+    } else {
+        res.send('<h1>הבוט מחובר למסד הנתונים וממתין להוראות</h1>');
+    }
+});
+
 app.listen(PORT);
 
 const MONGODB_URI = process.env.MONGODB_URI;
 
-// חיבור למסד הנתונים ושמירת ה-Session
 mongoose.connect(MONGODB_URI).then(() => {
     console.log('✅ מחובר למסד נתונים');
     const store = new MongoStore({ mongoose: mongoose });
@@ -19,7 +27,7 @@ mongoose.connect(MONGODB_URI).then(() => {
     const client = new Client({
         authStrategy: new LocalAuth({
             store: store,
-            clientId: 'client-one'
+            clientId: 'dani-bot' // שינינו מזהה כדי להכריח יצירה חדשה
         }),
         puppeteer: {
             headless: true,
@@ -27,7 +35,20 @@ mongoose.connect(MONGODB_URI).then(() => {
         }
     });
 
-    client.on('qr', (qr) => console.log('QR מוכן לסריקה!'));
-    client.on('ready', () => console.log('✅ הבוט מחובר ושומר Session!'));
+    client.on('qr', (qr) => {
+        latestQr = qr;
+        console.log('QR מוכן! ניתן לסרוק באתר.');
+    });
+
+    client.on('ready', () => {
+        latestQr = "";
+        console.log('✅ הבוט מחובר לוואטסאפ!');
+    });
+
+    client.on('disconnected', (reason) => {
+        console.log('הבוט התנתק, ינסה להפעיל מחדש:', reason);
+        client.initialize();
+    });
+
     client.initialize();
-}).catch(err => console.error('שגיאה בחיבור למסד הנתונים:', err));
+}).catch(err => console.error('שגיאה:', err));
