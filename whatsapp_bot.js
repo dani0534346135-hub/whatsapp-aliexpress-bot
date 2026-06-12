@@ -6,23 +6,21 @@ const express = require('express');
 const app = express();
 const PORT = process.env.PORT || 10000;
 
-// משתנה לשמירת הברקוד האחרון
 let latestQr = "";
+let isInitializing = false; // מנגנון למניעת לופ ברקודים
 
 app.get('/', (req, res) => {
     if (latestQr) {
-        res.send(`<h1>סרוק את הברקוד כדי לחבר את הבוט:</h1>
-                  <img src="https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(latestQr)}" />`);
+        res.send(`<h1>סרוק את הברקוד:</h1><img src="https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(latestQr)}" />`);
     } else {
-        res.send('<h1>הבוט מחובר למסד הנתונים וממתין להוראות</h1>');
+        res.send('<h1>הבוט מחובר וממתין להוראות</h1>');
     }
 });
 
-app.listen(PORT);
+app.listen(PORT, '0.0.0.0');
 
-// התחברות ל-MongoDB
 mongoose.connect(process.env.MONGODB_URI).then(() => {
-    console.log('✅ מחובר למסד נתונים');
+    console.log('✅ מחובר למסד הנתונים');
     const store = new MongoStore({ mongoose: mongoose });
 
     const client = new Client({
@@ -37,19 +35,24 @@ mongoose.connect(process.env.MONGODB_URI).then(() => {
     });
 
     client.on('qr', (qr) => {
-        latestQr = qr;
-        console.log('QR מוכן! ניתן לסרוק באתר.');
+        if (!isInitializing) {
+            latestQr = qr;
+            console.log('QR מוכן! ניתן לסרוק באתר.');
+            isInitializing = true;
+        }
     });
 
     client.on('ready', () => {
         latestQr = "";
+        isInitializing = false;
         console.log('✅ הבוט מחובר לוואטסאפ ושומר Session!');
     });
 
     client.on('disconnected', (reason) => {
-        console.log('הבוט התנתק, מנסה להתחבר מחדש...');
+        console.log('הבוט התנתק, מאפס תהליך...');
+        isInitializing = false;
         client.initialize();
     });
 
     client.initialize();
-}).catch(err => console.error('שגיאה בחיבור למסד הנתונים:', err));
+}).catch(err => console.error('שגיאה בחיבור:', err));
