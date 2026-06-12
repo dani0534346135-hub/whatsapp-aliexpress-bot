@@ -2,67 +2,51 @@ const { Client, LocalAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
 const { exec } = require('child_process');
 const express = require('express');
-
 const app = express();
 const PORT = process.env.PORT || 10000;
 
+// שרת אינטרנט להצגת ה-QR
 let latestQr = null;
-
 app.get('/', (req, res) => {
     if (latestQr) {
-        res.send(`
-            <div style="text-align: center; font-family: sans-serif; padding-top: 50px;">
-                <h2>🤖 הבוט של הרב דניאל - סרוק כדי לחבר:</h2>
-                <img src="https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(latestQr)}" />
-            </div>
-        `);
+        res.send(`<div style="text-align:center; padding:50px;"><h2>סרוק את הבוט:</h2><img src="https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(latestQr)}" /></div>`);
     } else {
-        res.send('<h2>🤖 הבוט מחובר וממתין להודעות...</h2>');
+        res.send('<h2>הבוט מחובר!</h2>');
     }
 });
-
-app.listen(PORT, () => console.log(`🌐 שרת רץ על פורט ${PORT}`));
+app.listen(PORT, () => console.log(`🌐 שרת פעיל בפורט ${PORT}`));
 
 const client = new Client({
-    authStrategy: new LocalAuth(),
-    puppeteer: {
-        args: ['--no-sandbox', '--disable-setuid-sandbox']
-    }
+    authStrategy: new LocalAuth({ dataPath: './.wwebjs_auth' }), // שמירת החיבור לקובץ
+    puppeteer: { args: ['--no-sandbox', '--disable-setuid-sandbox'] }
 });
 
 client.on('qr', (qr) => {
-    if (latestQr === qr) return; // מונע עדכון מיותר
-    latestQr = qr; 
+    latestQr = qr;
     qrcode.generate(qr, { small: true });
 });
 
 client.on('ready', () => {
     latestQr = null;
-    console.log('🤖 הבוט מחובר וממתין להודעות!');
+    console.log('✅ הבוט מחובר ומוכן!');
 });
 
-async function handleMessage(msg) {
-    const text = msg.body ? msg.body.trim() : "";
-    if (text.startsWith('בוט ')) {
-        const keyword = text.replace('בוט ', '').trim();
-        if (!keyword) return;
+// מנוע התגובות להודעות
+client.on('message', async msg => {
+    console.log(`💬 הודעה התקבלה: ${msg.body}`); // זה יופיע לך בלוגים של Render
+    
+    if (msg.body.startsWith('בוט ')) {
+        const keyword = msg.body.replace('בוט ', '').trim();
+        await msg.reply(`🔍 מחפש עבורך: *${keyword}*...`);
 
-        console.log(`[הודעה] מחפש: "${keyword}"`);
-        await msg.reply(`🔍 מחפש דילים עבור: *${keyword}*...`);
-
-        // הרצה עם timeout כדי למנוע תקיעות
-        exec(`python3 bot_brain.py "${keyword}"`, { timeout: 20000 }, (error, stdout, stderr) => {
+        exec(`python3 bot_brain.py "${keyword}"`, (error, stdout, stderr) => {
             if (error) {
-                console.error(`שגיאה: ${error.message}`);
-                msg.reply("❌ קרתה תקלה בחיפוש הדיל, נסה שוב.");
+                msg.reply("❌ קרתה תקלה בחיפוש, נסה שוב.");
                 return;
             }
-            if (stdout && stdout.trim()) {
-                msg.reply(stdout.trim());
-            }
+            msg.reply(stdout || "לא נמצאו תוצאות.");
         });
     }
-}
+});
 
-client.on('message', handleMessage);
 client.initialize();
